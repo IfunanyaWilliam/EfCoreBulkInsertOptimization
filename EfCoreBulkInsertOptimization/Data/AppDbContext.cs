@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using EfCoreBulkInsertOptimization.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace EfCoreBulkInsertOptimization.Data
 {
@@ -8,6 +9,6 @@ namespace EfCoreBulkInsertOptimization.Data
         {
         }
 
-
+        public DbSet<Customer> Customers { get; set; }
     }
 }

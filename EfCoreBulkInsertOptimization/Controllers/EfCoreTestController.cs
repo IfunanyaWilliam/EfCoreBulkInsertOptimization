@@ -17,7 +17,43 @@ namespace EfCoreBulkInsertOptimization.Controllers
         {
             _logger = logger;
             _dbContext = dbContext;
-            _dbContext.Database.EnsureCreated();
+        }
+
+        [HttpGet("ReadNormal")]
+        public async Task<ActionResult<BenchmarkResult>> NormalRead()
+        {
+            var clockRead = new Stopwatch();
+            clockRead.Start();
+            var customers = await _dbContext.Customers.ToListAsync();
+            clockRead.Stop();
+
+            return Ok(new BenchmarkResult
+            {
+                Action = "EF Core Read",
+                Entities = customers.Count,
+                TimeElapsed = $"{clockRead.ElapsedMilliseconds}ms"
+            });
+        }
+
+        //I didn't get any performance improvement with this method, but it's here for comparison
+        //Check this method for possible improvements
+        [HttpGet("ReadOptimized")]
+        public async Task<ActionResult<BenchmarkResult>> OptimizedRead()
+        {
+            var clockRead = new Stopwatch();
+            var customerIds = Enumerable.Range(1, 50000).ToList();
+
+            clockRead.Start();
+            var customers = await _dbContext.Customers.AsNoTracking()
+                        .WhereBulkContains(customerIds, c => c.Id).ToListAsync(); 
+            clockRead.Stop();
+
+            return Ok(new BenchmarkResult
+            {
+                Action = "EF Core Read Optimized",
+                Entities = customers.Count,
+                TimeElapsed = $"{clockRead.ElapsedMilliseconds}ms"
+            });
         }
 
         [HttpPost("InsertNormal")]
@@ -27,8 +63,8 @@ namespace EfCoreBulkInsertOptimization.Controllers
             var clockSaveChanges = new Stopwatch();
 
             //normal insert
-            _dbContext.Customers.AddRange(customers);
             clockSaveChanges.Start();
+            _dbContext.Customers.AddRange(customers);
             _dbContext.SaveChanges();
             clockSaveChanges.Stop();
 
@@ -47,9 +83,9 @@ namespace EfCoreBulkInsertOptimization.Controllers
             var clockSaveChanges = new Stopwatch();
 
             //normal insert
-            _dbContext.BulkInsert(customers); //from nuget package: Z.EntityFramework.Extensions.EFCore
             clockSaveChanges.Start();
-            _dbContext.SaveChanges();
+            _dbContext.BulkInsert(customers); //from nuget package: Z.EntityFramework.Extensions.EFCore
+            //_dbContext.SaveChanges();
             clockSaveChanges.Stop();
 
             return Ok(new BenchmarkResult
@@ -67,8 +103,8 @@ namespace EfCoreBulkInsertOptimization.Controllers
             var clockSaveChanges = new Stopwatch();
 
             //normal insert
-            _dbContext.BulkInsert(customers, options => options.AutoMapOutputDirection = false); //from nuget package: Z.EntityFramework.Extensions.EFCore
             clockSaveChanges.Start();
+            _dbContext.BulkInsert(customers, options => options.AutoMapOutputDirection = false); //from nuget package: Z.EntityFramework.Extensions.EFCore
             _dbContext.SaveChanges();
             clockSaveChanges.Stop();
 
@@ -129,7 +165,6 @@ namespace EfCoreBulkInsertOptimization.Controllers
                 TimeElapsed = $"{clockSaveChanges.ElapsedMilliseconds}ms"
             });
         }
-
 
 
         private static List<Customer> GenerateCustomers(int count)
